@@ -1,15 +1,28 @@
-import { createClient } from '@libsql/client'
+import { createClient, type Client } from '@libsql/client'
 
-const url = process.env.DATABASE_URL || ''
-const authToken = process.env.TURSO_AUTH_TOKEN || ''
+let _db: Client | null = null
 
-if (!url) {
-  throw new Error('DATABASE_URL is not set')
+function getDb(): Client {
+  if (_db) return _db
+  const url = process.env.DATABASE_URL || ''
+  const authToken = process.env.TURSO_AUTH_TOKEN || ''
+  if (!url) {
+    throw new Error('DATABASE_URL is not set')
+  }
+  _db = createClient({
+    url,
+    authToken: authToken || undefined,
+  })
+  return _db
 }
 
-export const db = createClient({
-  url,
-  authToken: authToken || undefined,
+// Lazy proxy: defer client creation until first use (avoids build-time eval)
+export const db = new Proxy({} as Client, {
+  get(_target, prop) {
+    const client = getDb()
+    const value = (client as any)[prop]
+    return typeof value === 'function' ? value.bind(client) : value
+  },
 })
 
 export async function initDatabase() {
