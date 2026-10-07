@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select'
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Pencil, Trash2, MapPin, Clock } from 'lucide-react'
 import { toast } from 'sonner'
+import { ClientSelectorWithAdd } from './client-selector-with-add'
 
 const MONTHS_ES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -377,13 +378,14 @@ export function EventsModule() {
               <Input value={form.venue || ''} onChange={(e) => setForm({ ...form, venue: e.target.value })} placeholder="Dirección del evento" />
             </div>
             <div>
-              <Label>Cliente (opcional)</Label>
-              <Select value={form.client_id || ''} onValueChange={(v) => setForm({ ...form, client_id: v })}>
-                <SelectTrigger><SelectValue placeholder="Sin cliente asignado" /></SelectTrigger>
-                <SelectContent>
-                  {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <ClientSelectorWithAdd
+                label="Cliente (opcional)"
+                value={form.client_id || ''}
+                onChange={(v) => setForm({ ...form, client_id: v })}
+                clients={clients}
+                placeholder="Sin cliente asignado"
+                onClientCreated={(c) => setClients((prev) => [...prev, c])}
+              />
             </div>
             <div>
               <Label>Estado</Label>
