@@ -5,16 +5,21 @@ import { generateQuotationPDF, getBusinessInfo } from '@/lib/pdf'
 export const runtime = 'nodejs'
 
 async function nextFolio(prefix: string): Promise<string> {
-  const result = await db.execute(
-    `SELECT folio FROM quotations WHERE folio LIKE ? ORDER BY id DESC LIMIT 1`
-  )
+  // Get ALL folios for this prefix, find the max sequence number
+  const result = await db.execute({
+    sql: `SELECT folio FROM quotations WHERE folio LIKE ?`,
+    args: [`${prefix}-%`],
+  })
   const rows = result.rows as any[]
-  let next = 1
-  if (rows.length > 0) {
-    const m = rows[0].folio.match(/\d+$/)
-    if (m) next = parseInt(m[0], 10) + 1
+  let maxNum = 0
+  for (const r of rows) {
+    const m = (r.folio || '').match(/(\d+)$/)
+    if (m) {
+      const n = parseInt(m[1], 10)
+      if (n > maxNum) maxNum = n
+    }
   }
-  return `${prefix}-${String(next).padStart(5, '0')}`
+  return `${prefix}-${String(maxNum + 1).padStart(5, '0')}`
 }
 
 export async function GET(req: NextRequest) {

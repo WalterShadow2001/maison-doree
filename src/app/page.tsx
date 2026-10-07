@@ -71,9 +71,12 @@ function SidebarContent({ activeTab, onSelectTab }: SidebarContentProps) {
       {/* Logo / Brand */}
       <div className="px-4 py-5 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <div className="relative w-11 h-11 rounded-full gold-gradient-bg flex items-center justify-center shadow-sm">
-            <span className="font-serif-display text-white font-bold text-lg">MD</span>
-            <div className="absolute inset-0 rounded-full border-2 border-white/30" />
+          <div className="relative w-12 h-12 rounded-full overflow-hidden ring-2 ring-primary/30 shadow-sm flex-shrink-0 bg-white">
+            <img
+              src="/logo-maison-doree.jpg"
+              alt="Maison Dorée"
+              className="w-full h-full object-cover"
+            />
           </div>
           <div>
             <div className="font-serif-display text-lg font-bold leading-tight">

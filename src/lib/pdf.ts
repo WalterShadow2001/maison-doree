@@ -1,5 +1,7 @@
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import fs from 'fs'
+import path from 'path'
 
 export interface BusinessInfo {
   name: string
@@ -43,6 +45,33 @@ const GOLD_LIGHT: [number, number, number] = [232, 201, 124]
 const DARK: [number, number, number] = [26, 26, 26]
 const GRAY: [number, number, number] = [107, 107, 107]
 
+// Cache the loaded logo image data
+let _logoData: { data: string; format: 'JPEG' } | null = null
+
+function loadLogo(): { data: string; format: 'JPEG' } | null {
+  if (_logoData) return _logoData
+  // Try multiple locations (public folder at runtime, project root in dev)
+  const candidates = [
+    path.join(process.cwd(), 'public', 'logo-maison-doree.jpg'),
+    '/home/z/my-project/public/logo-maison-doree.jpg',
+  ]
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) {
+        const buf = fs.readFileSync(p)
+        _logoData = {
+          data: buf.toString('base64'),
+          format: 'JPEG',
+        }
+        return _logoData
+      }
+    } catch {
+      // ignore and try next
+    }
+  }
+  return null
+}
+
 function drawHeader(doc: jsPDF, business: BusinessInfo) {
   const pageWidth = doc.internal.pageSize.getWidth()
 
@@ -52,30 +81,52 @@ function drawHeader(doc: jsPDF, business: BusinessInfo) {
   doc.setFillColor(...GOLD_LIGHT)
   doc.rect(0, 6, pageWidth, 2, 'F')
 
-  // Logo monogram (MD in gold circle)
-  doc.setFillColor(...GOLD_DARK)
-  doc.circle(28, 30, 14, 'F')
-  doc.setFillColor(...GOLD_LIGHT)
-  doc.circle(28, 30, 11, 'F')
-  doc.setTextColor(...GOLD_DARK)
-  doc.setFont('times', 'bold')
-  doc.setFontSize(16)
-  doc.text('MD', 28, 34, { align: 'center' })
+  // Logo: try to embed the real image, fall back to gold monogram circle
+  const logo = loadLogo()
+  const logoSize = 22
+  const logoX = 18
+  const logoY = 19
+  if (logo) {
+    // Decorative gold ring around the logo
+    doc.setFillColor(...GOLD_DARK)
+    doc.circle(logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2 + 1.5, 'F')
+    // White background to keep image clean
+    doc.setFillColor(255, 255, 255)
+    doc.circle(logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2 + 0.3, 'F')
+    // Embed image (square, cropped into circle by mask via shape)
+    try {
+      doc.addImage(
+        logo.data,
+        logo.format,
+        logoX,
+        logoY,
+        logoSize,
+        logoSize,
+        undefined,
+        'FAST'
+      )
+    } catch {
+      // Fallback to monogram if image fails
+      drawMonogram(doc, logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2)
+    }
+  } else {
+    drawMonogram(doc, logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2)
+  }
 
   // Business name
   doc.setTextColor(...DARK)
   doc.setFont('times', 'bold')
   doc.setFontSize(26)
-  doc.text(business.name, 50, 28)
+  doc.text(business.name, 44, 28)
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   doc.setTextColor(...GRAY)
-  doc.text(business.tagline.toUpperCase(), 50, 36)
+  doc.text(business.tagline.toUpperCase(), 44, 36)
   doc.setFontSize(8)
-  doc.text(business.address, 50, 42)
-  doc.text(`Tel: ${business.phone}  |  ${business.email}`, 50, 47)
-  doc.text(`RFC: ${business.rfc}`, 50, 52)
+  doc.text(business.address, 44, 42)
+  doc.text(`Tel: ${business.phone}  |  ${business.email}`, 44, 47)
+  doc.text(`RFC: ${business.rfc}`, 44, 52)
 
   // Decorative gold line
   doc.setDrawColor(...GOLD_DARK)
@@ -84,6 +135,18 @@ function drawHeader(doc: jsPDF, business: BusinessInfo) {
   doc.setDrawColor(...GOLD_LIGHT)
   doc.setLineWidth(0.3)
   doc.line(14, 61.5, pageWidth - 14, 61.5)
+}
+
+// Fallback monogram (used if logo image is not available)
+function drawMonogram(doc: jsPDF, cx: number, cy: number, r: number) {
+  doc.setFillColor(...GOLD_DARK)
+  doc.circle(cx, cy, r, 'F')
+  doc.setFillColor(...GOLD_LIGHT)
+  doc.circle(cx, cy, r * 0.78, 'F')
+  doc.setTextColor(...GOLD_DARK)
+  doc.setFont('times', 'bold')
+  doc.setFontSize(r * 1.1)
+  doc.text('MD', cx, cy + r * 0.35, { align: 'center' })
 }
 
 function drawFooter(doc: jsPDF) {
