@@ -46,24 +46,24 @@ const DARK: [number, number, number] = [26, 26, 26]
 const GRAY: [number, number, number] = [107, 107, 107]
 
 // Cache the loaded logo image data
-let _logoData: { data: string; format: 'JPEG' } | null = null
+let _logoPdfData: { data: string; format: 'PNG' } | null = null
 
-function loadLogo(): { data: string; format: 'JPEG' } | null {
-  if (_logoData) return _logoData
-  // Try multiple locations (public folder at runtime, project root in dev)
+function loadPdfLogo(): { data: string; format: 'PNG' } | null {
+  if (_logoPdfData) return _logoPdfData
+  // PDF logo = transparent PNG composited on black rounded background
   const candidates = [
-    path.join(process.cwd(), 'public', 'logo-maison-doree.jpg'),
-    '/home/z/my-project/public/logo-maison-doree.jpg',
+    path.join(process.cwd(), 'public', 'logo-pdf.png'),
+    '/home/z/my-project/public/logo-pdf.png',
   ]
   for (const p of candidates) {
     try {
       if (fs.existsSync(p)) {
         const buf = fs.readFileSync(p)
-        _logoData = {
+        _logoPdfData = {
           data: buf.toString('base64'),
-          format: 'JPEG',
+          format: 'PNG',
         }
-        return _logoData
+        return _logoPdfData
       }
     } catch {
       // ignore and try next
@@ -81,19 +81,21 @@ function drawHeader(doc: jsPDF, business: BusinessInfo) {
   doc.setFillColor(...GOLD_LIGHT)
   doc.rect(0, 6, pageWidth, 2, 'F')
 
-  // Logo: try to embed the real image, fall back to gold monogram circle
-  const logo = loadLogo()
+  // Logo: transparent PNG composited on black rounded background (circular)
+  const logo = loadPdfLogo()
   const logoSize = 22
   const logoX = 18
   const logoY = 19
+  const cx = logoX + logoSize / 2
+  const cy = logoY + logoSize / 2
+
   if (logo) {
     // Decorative gold ring around the logo
     doc.setFillColor(...GOLD_DARK)
-    doc.circle(logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2 + 1.5, 'F')
-    // White background to keep image clean
-    doc.setFillColor(255, 255, 255)
-    doc.circle(logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2 + 0.3, 'F')
-    // Embed image (square, cropped into circle by mask via shape)
+    doc.circle(cx, cy, logoSize / 2 + 1.8, 'F')
+    doc.setFillColor(...GOLD_LIGHT)
+    doc.circle(cx, cy, logoSize / 2 + 0.8, 'F')
+    // Embed the transparent PNG (already has black circle background built-in)
     try {
       doc.addImage(
         logo.data,
@@ -106,11 +108,10 @@ function drawHeader(doc: jsPDF, business: BusinessInfo) {
         'FAST'
       )
     } catch {
-      // Fallback to monogram if image fails
-      drawMonogram(doc, logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2)
+      drawMonogram(doc, cx, cy, logoSize / 2)
     }
   } else {
-    drawMonogram(doc, logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2)
+    drawMonogram(doc, cx, cy, logoSize / 2)
   }
 
   // Business name
@@ -139,13 +140,16 @@ function drawHeader(doc: jsPDF, business: BusinessInfo) {
 
 // Fallback monogram (used if logo image is not available)
 function drawMonogram(doc: jsPDF, cx: number, cy: number, r: number) {
-  doc.setFillColor(...GOLD_DARK)
+  // Black rounded background (matches the real logo style)
+  doc.setFillColor(0, 0, 0)
   doc.circle(cx, cy, r, 'F')
-  doc.setFillColor(...GOLD_LIGHT)
+  doc.setFillColor(...GOLD_DARK)
   doc.circle(cx, cy, r * 0.78, 'F')
+  doc.setFillColor(...GOLD_LIGHT)
+  doc.circle(cx, cy, r * 0.6, 'F')
   doc.setTextColor(...GOLD_DARK)
   doc.setFont('times', 'bold')
-  doc.setFontSize(r * 1.1)
+  doc.setFontSize(r * 1.0)
   doc.text('MD', cx, cy + r * 0.35, { align: 'center' })
 }
 
